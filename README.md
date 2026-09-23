@@ -26,4 +26,31 @@ The build uses password authentication; user public-key authentication and
 SFTP are disabled. Before starting a server on another firmware, check its ABI
 and libraries and run `dropbear -h` from temporary storage on the stick.
 
+## Transfer to RAM
+
+If you can execute a command on the stick, start this on the host first
+(OpenBSD `nc`, as used here):
+
+```sh
+nc -N -l 49123 < out/dropbear
+md5sum out/dropbear
+```
+
+Then on the stick, replacing `HOST_IP` with the host's reachable address:
+
+```sh
+/bin/nc HOST_IP 49123 > /tmp/dropbear
+/bin/md5sum /tmp/dropbear
+```
+
+Compare the MD5 values. Only if they match, run:
+
+```sh
+chmod 700 /tmp/dropbear
+/tmp/dropbear -h
+```
+
+Repeat the transfer with `out/dropbearkey` to `/tmp/dropbearkey` if you
+need to generate a host key.
+
 The build scripts are MIT licensed. Upstream source licenses remain separate.
