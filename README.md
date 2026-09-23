@@ -36,7 +36,8 @@ nc -N -l 49123 < out/dropbear
 md5sum out/dropbear
 ```
 
-Then on the stick, replacing `HOST_IP` with the host's reachable address:
+Then on the stick, replacing `HOST_IP` with the host's address. The stick must
+have a route to that address:
 
 ```sh
 /bin/nc HOST_IP 49123 > /tmp/dropbear
