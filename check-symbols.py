@@ -2,7 +2,7 @@
 """
 Automated Symbol Gate for HSGQ RTL8672 (Lexra LX4180).
 Audits dynamic symbol dependencies of compiled binaries against
-the native shared libraries extracted from firmware V1.1.6.
+the native shared libraries supplied from the target firmware.
 
 Strict Verification Principles:
 1. Transitive DT_NEEDED Closure: Compares undefined symbols ONLY against
@@ -22,16 +22,17 @@ import glob
 import struct
 import subprocess
 
+def require_target_elf(data, filepath):
+    """Reject inputs the ELF32 big-endian MIPS parser cannot inspect."""
+    if (len(data) < 52 or data[:6] != b"\x7fELF\x01\x02"
+            or struct.unpack(">H", data[18:20])[0] != 8):
+        raise ValueError(f"Not an ELF32 big-endian MIPS file: {filepath}")
+
 def parse_elf_dt_needed(filepath):
     """Extract DT_NEEDED library names directly from PT_DYNAMIC segment."""
-    try:
-        with open(filepath, "rb") as f:
-            data = f.read()
-    except Exception:
-        return []
-
-    if len(data) < 52 or data[:4] != b"\x7fELF":
-        return []
+    with open(filepath, "rb") as f:
+        data = f.read()
+    require_target_elf(data, filepath)
 
     e_phoff, = struct.unpack(">I", data[28:32])
     e_phentsize, e_phnum = struct.unpack(">HH", data[42:46])
@@ -82,14 +83,9 @@ def parse_elf_dt_needed(filepath):
 
 def parse_elf_exported_symbols(filepath):
     """Extract exported (defined dynamic) symbols from an ELF shared library via PT_DYNAMIC."""
-    try:
-        with open(filepath, "rb") as f:
-            data = f.read()
-    except Exception:
-        return set()
-
-    if len(data) < 52 or data[:4] != b"\x7fELF":
-        return set()
+    with open(filepath, "rb") as f:
+        data = f.read()
+    require_target_elf(data, filepath)
 
     e_phoff, = struct.unpack(">I", data[28:32])
     e_phentsize, e_phnum = struct.unpack(">HH", data[42:46])
@@ -142,7 +138,10 @@ def parse_elf_exported_symbols(filepath):
         st_name, st_value, st_size, st_info, st_other, st_shndx = struct.unpack(">IIIBBH", data[pos:pos+16])
         name_end = data.find(b"\x00", strtab_off + st_name)
         sym_name = data[strtab_off + st_name:name_end].decode("ascii", "replace")
-        if sym_name and st_shndx != 0:  # non-zero shndx = defined symbol
+        binding = st_info >> 4
+        visibility = st_other & 0x03
+        if (sym_name and st_shndx != 0 and
+                binding in (1, 2) and visibility in (0, 3)):
             syms.add(sym_name)
     return syms
 
@@ -152,7 +151,7 @@ def get_binary_symbols(bin_path):
     Separates GLOBAL UND (mandatory for runtime) from WEAK UND (optional).
     """
     cmd = ["readelf", "-Ws", bin_path]
-    res = subprocess.run(cmd, capture_output=True, text=True)
+    res = subprocess.run(cmd, capture_output=True, text=True, check=True)
     global_und = set()
     weak_und = set()
     for line in res.stdout.splitlines():
@@ -301,4 +300,8 @@ def main():
         sys.exit(0)
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (OSError, ValueError, struct.error, subprocess.CalledProcessError) as exc:
+        print(f"[FATAL] Symbol Gate cannot inspect input: {exc}", file=sys.stderr)
+        sys.exit(1)
