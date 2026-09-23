@@ -1,0 +1,5 @@
+/out/
+/firmware-libs/
+/*_host_key
+__pycache__/
+*.py[cod]
