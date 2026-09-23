@@ -61,4 +61,24 @@ chmod 700 /tmp/dropbear
 Repeat the transfer with `out/dropbearkey` to `/tmp/dropbearkey` if you
 need to generate a host key.
 
+## Keeping SSH across reboots
+
+On the tested `V1.1.6_sfp_HSGQ_HGU_250729` firmware, `/var/config` is a writable
+partition that persists across reboots. After checking a binary from `/tmp`, you
+can store the binary and its host key under `/var/config/dropbear/`, provided
+there is enough free space. Keep the host key private. A stored binary does not
+start by itself: without a startup configuration change, you must start the
+standalone `dropbear` manually after each reboot.
+
+For automatic startup on the tested stick, the vendor's `/bin/inetd` runs
+`dropbear-inetd` from `/var/config/dropbear/`. This required adding an SSH entry
+to `/etc/inetd.conf` in the read-only SquashFS RootFS and flashing the rebuilt
+image. The entry points to the binary and host key in `/var/config/dropbear/`;
+the firmware image does not need to contain either file. This repository builds
+the binaries but does not rebuild or flash the RootFS.
+
+Check the partition layout and startup mechanism on other firmware versions
+before trying to make SSH persistent. This setup has not been validated for
+those versions.
+
 The build scripts are MIT licensed. Upstream source licenses remain separate.
