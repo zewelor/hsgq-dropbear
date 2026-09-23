@@ -7,10 +7,18 @@ shell. Other firmware versions have not been tested.
 This project does not provide initial access to a stick: you need a way to copy
 and run a binary there first.
 
+## Prerequisites
+
+- Docker with `buildx`.
+- The unpacked original firmware for the target stick (`V1.1.6_sfp_HSGQ_HGU_250729`
+  for the tested setup), specifically its `rootfs/lib/` directory. The build
+  checks the binaries' required symbols against these runtime libraries; the
+  RSDK toolchain alone cannot verify they exist on the stick. Firmware libraries
+  are used for this check and are not included in `out/`.
+
 ## Build
 
-Install Docker with `buildx` and unpack the firmware you want to target. Point
-the build at its `lib/` directory:
+Point the build at that `lib/` directory:
 
 ```sh
 FIRMWARE_LIBS_DIR=/absolute/path/to/rootfs/lib ./build.sh
@@ -18,9 +26,8 @@ FIRMWARE_LIBS_DIR=/absolute/path/to/rootfs/lib ./build.sh
 
 `out/` contains `dropbear` (standalone), `dropbear-inetd`, `dropbearkey`,
 `SHA256SUMS`, `build-info.txt`, and the symbol check result. The build fails if
-required runtime symbols are missing from the supplied libraries. It fetches
-pinned RSDK and Dropbear source revisions; no vendor libraries are included in
-this repository.
+required runtime symbols are missing. It fetches pinned RSDK and Dropbear source
+revisions; no vendor libraries are included in this repository.
 
 The build uses password authentication; user public-key authentication and
 SFTP are disabled. Before starting a server on another firmware, check its ABI
